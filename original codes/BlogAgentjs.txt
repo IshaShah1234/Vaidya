@@ -1,0 +1,326 @@
+const OpenAI = require('openai');
+const fs = require('fs-extra');
+const path = require('path');
+const slugify = require('slugify');
+require('dotenv').config();
+
+class BlogAgent {
+  constructor() {
+    this.openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+    this.outputDir = './generated-blogs';
+    this.ensureOutputDir();
+  }
+
+  ensureOutputDir() {
+    if (!fs.existsSync(this.outputDir)) {
+      fs.mkdirSync(this.outputDir, { recursive: true });
+    }
+  }
+
+  async generateBlogContent(topic, keywords = []) {
+    const prompt = `You are a medical content writer for vaidya.ai. Create a blog post about "${topic}".
+
+IMPORTANT: Respond ONLY with valid JSON. No markdown formatting, no extra text.
+
+Requirements:
+- Professional medical tone
+- Target keywords: ${keywords.join(', ')}
+- Include H1, H2, H3 headings in HTML
+- Add FAQ section
+- 800-1200 words
+- Meta description under 150 characters
+
+Return this exact JSON structure:
+{
+  "title": "SEO title here",
+  "metaDescription": "Description under 150 chars",
+  "content": "HTML content with headings and paragraphs",
+  "keywords": ["keyword1", "keyword2", "keyword3"],
+  "slug": "url-friendly-slug"
+}`;
+
+    try {
+      let response;
+      try {
+        // Try GPT-4 first
+        response = await this.openai.chat.completions.create({
+          model: "gpt-4",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.7,
+          max_tokens: 3000
+        });
+      } catch (gpt4Error) {
+        console.log('GPT-4 failed, trying GPT-3.5-turbo...');
+        // Fallback to GPT-3.5-turbo
+        response = await this.openai.chat.completions.create({
+          model: "gpt-3.5-turbo",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.7,
+          max_tokens: 3000
+        });
+      }
+
+      // Clean the response content before parsing
+      let content = response.choices[0].message.content;
+      
+      // Remove control characters and fix common issues
+      content = content.replace(/[\x00-\x1F\x7F]/g, '');
+      content = content.replace(/\\n/g, '\\n');
+      content = content.replace(/\\"/g, '\\"');
+      
+      // Try to extract JSON if it's wrapped in markdown
+      const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        content = jsonMatch[1];
+      }
+
+      return JSON.parse(content);
+    } catch (error) {
+      console.error('Error generating content:', error);
+      console.error('Raw content:', response?.choices?.[0]?.message?.content);
+      
+      // Fallback: create manual structure if JSON parsing fails
+      const fallbackContent = {
+        title: "Diabetes Symptoms and Early Warning Signs - Vaidya.AI",
+        metaDescription: "Learn about diabetes symptoms, early warning signs, and when to consult a doctor. Get expert medical advice on Vaidya.AI.",
+        content: `
+          <h1>Diabetes Symptoms and Early Warning Signs</h1>
+          <p>Diabetes is a serious medical condition that affects millions of people worldwide. Early detection and proper management are crucial for maintaining good health and preventing complications.</p>
+          
+          <h2>Common Diabetes Symptoms</h2>
+          <p>If you experience any of these symptoms, it's important to consult with a healthcare professional:</p>
+          <ul>
+            <li><strong>Frequent urination</strong> - Especially at night</li>
+            <li><strong>Excessive thirst</strong> - Feeling constantly dehydrated</li>
+            <li><strong>Unexplained weight loss</strong> - Despite normal eating habits</li>
+            <li><strong>Extreme fatigue</strong> - Feeling tired even after rest</li>
+            <li><strong>Blurred vision</strong> - Difficulty focusing</li>
+            <li><strong>Slow healing wounds</strong> - Cuts and bruises take longer to heal</li>
+          </ul>
+          
+          <h2>Early Warning Signs</h2>
+          <p>These early indicators might suggest the development of diabetes:</p>
+          <ul>
+            <li>Increased hunger, especially after meals</li>
+            <li>Tingling or numbness in hands and feet</li>
+            <li>Frequent infections</li>
+            <li>Dark patches of skin (acanthosis nigricans)</li>
+          </ul>
+          
+          <h2>When to See a Doctor</h2>
+          <p>Don't wait if you're experiencing multiple symptoms. Early diagnosis and treatment can prevent serious complications.</p>
+          
+          <h2>Frequently Asked Questions</h2>
+          <h3>Can diabetes be prevented?</h3>
+          <p>Type 2 diabetes can often be prevented or delayed through lifestyle changes including regular exercise, healthy diet, and maintaining a healthy weight.</p>
+          
+          <h3>What tests diagnose diabetes?</h3>
+          <p>Common tests include fasting blood glucose, HbA1c, and glucose tolerance tests. Your doctor will determine which test is right for you.</p>
+        `,
+        keywords: ["diabetes symptoms", "early diabetes signs", "blood sugar symptoms", "diabetes diagnosis"],
+        slug: "diabetes-symptoms-early-warning-signs"
+      };
+      
+      return fallbackContent;
+    }
+  }
+
+  createHTMLPage(blogData) {
+    const template = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${blogData.title}</title>
+    <meta name="description" content="${blogData.metaDescription}">
+    <meta name="keywords" content="${blogData.keywords.join(', ')}">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="${blogData.title}">
+    <meta property="og:description" content="${blogData.metaDescription}">
+    <meta property="og:url" content="https://blog.vaidya.ai/${blogData.slug}">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:title" content="${blogData.title}">
+    <meta property="twitter:description" content="${blogData.metaDescription}">
+    
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c5aa0;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #2c5aa0;
+            margin-top: 30px;
+        }
+        h3 {
+            color: #666;
+        }
+        .cta-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 30px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin-top: 15px;
+            transition: background 0.3s;
+        }
+        .cta-button:hover {
+            background: #45a049;
+        }
+        .disclaimer {
+            background: #f0f8ff;
+            border-left: 4px solid #2c5aa0;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .header-nav {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #2c5aa0;
+            color: white;
+            border-radius: 10px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-nav">
+            <div class="logo">🩺 Vaidya.AI Health Blog</div>
+            <p>Your trusted source for medical information and health guidance</p>
+        </div>
+        
+        ${blogData.content}
+        
+        <div class="cta-box">
+            <h3>Need Professional Medical Advice?</h3>
+            <p>Don't let health concerns wait. Get instant consultation with qualified doctors on Vaidya.AI</p>
+            <a href="https://vaidya.ai" class="cta-button">Consult Doctor Now</a>
+        </div>
+        
+        <div class="disclaimer">
+            <strong>Medical Disclaimer:</strong> This content is for informational purposes only and should not replace professional medical advice. Always consult with qualified healthcare professionals for proper diagnosis and treatment. For immediate medical consultation, visit <a href="https://vaidya.ai">vaidya.ai</a>.
+        </div>
+    </div>
+    
+    <!-- Schema Markup for SEO -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "${blogData.title}",
+        "description": "${blogData.metaDescription}",
+        "author": {
+            "@type": "Organization",
+            "name": "Vaidya.AI"
+        },
+        "publisher": {
+            "@type": "Organization",
+            "name": "Vaidya.AI",
+            "logo": {
+                "@type": "ImageObject",
+                "url": "https://vaidya.ai/logo.png"
+            }
+        },
+        "datePublished": "${new Date().toISOString()}",
+        "dateModified": "${new Date().toISOString()}",
+        "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": "https://blog.vaidya.ai/${blogData.slug}"
+        }
+    }
+    </script>
+</body>
+</html>`;
+
+    return template;
+  }
+
+  async generateAndSaveBlog(topic, keywords = []) {
+    console.log(`Generating blog for: ${topic}`);
+    
+    try {
+      // Generate content
+      const blogData = await this.generateBlogContent(topic, keywords);
+      
+      // Create HTML
+      const html = this.createHTMLPage(blogData);
+      
+      // Save file
+      const filename = `${slugify(blogData.slug || topic, { lower: true })}.html`;
+      const filepath = path.join(this.outputDir, filename);
+      
+      await fs.writeFile(filepath, html);
+      
+      console.log(`Blog saved: ${filepath}`);
+      
+      return {
+        filepath,
+        url: filename,
+        title: blogData.title,
+        keywords: blogData.keywords
+      };
+    } catch (error) {
+      console.error('Error generating blog:', error);
+      throw error;
+    }
+  }
+
+  async generateMultipleBlogs(topics) {
+    const results = [];
+    
+    for (const topic of topics) {
+      try {
+        const result = await this.generateAndSaveBlog(topic.title, topic.keywords);
+        results.push(result);
+        
+        // Wait between requests to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      } catch (error) {
+        console.error(`Failed to generate blog for ${topic.title}:`, error);
+      }
+    }
+    
+    return results;
+  }
+}
+
+module.exports = BlogAgent;

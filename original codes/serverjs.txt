@@ -1,0 +1,89 @@
+// server.js - Main server file
+const express = require('express');
+const path = require('path');
+const BlogAgent = require('./BlogAgent'); // Your existing code
+require('dotenv').config();
+
+const app = express();
+const port = process.env.PORT || 3000;
+
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
+app.use('/blogs', express.static('generated-blogs'));
+
+// Initialize Blog Agent
+const blogAgent = new BlogAgent();
+
+// Routes
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// API route to generate blog
+app.post('/api/generate-blog', async (req, res) => {
+  try {
+    const { topic, keywords } = req.body;
+    
+    if (!topic) {
+      return res.status(400).json({ error: 'Topic is required' });
+    }
+
+    console.log(`Generating blog for: ${topic}`);
+    
+    // Generate blog using your existing BlogAgent
+    const result = await blogAgent.generateAndSaveBlog(topic, keywords || []);
+    
+    res.json({
+      success: true,
+      message: 'Blog generated successfully!',
+      blog: {
+        title: result.title,
+        url: `/blogs/${result.url}`,
+        filepath: result.filepath,
+        keywords: result.keywords
+      }
+    });
+  } catch (error) {
+    console.error('Error generating blog:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate blog', 
+      details: error.message 
+    });
+  }
+});
+
+// API route to get list of generated blogs
+app.get('/api/blogs', (req, res) => {
+  const fs = require('fs');
+  const blogsDir = './generated-blogs';
+  
+  try {
+    if (!fs.existsSync(blogsDir)) {
+      return res.json({ blogs: [] });
+    }
+    
+    const files = fs.readdirSync(blogsDir)
+      .filter(file => file.endsWith('.html'))
+      .map(file => ({
+        name: file.replace('.html', ''),
+        url: `/blogs/${file}`,
+        created: fs.statSync(path.join(blogsDir, file)).birthtime
+      }))
+      .sort((a, b) => new Date(b.created) - new Date(a.created));
+    
+    res.json({ blogs: files });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch blogs' });
+  }
+});
+
+// Start server
+app.listen(port, () => {
+  console.log(`🚀 Blog Agent Server running at http://localhost:${port}`);
+  console.log(`📝 Generate blogs at: http://localhost:${port}`);
+  console.log(`📁 View generated blogs at: http://localhost:${port}/blogs/`);
+});
+
+module.exports = app;

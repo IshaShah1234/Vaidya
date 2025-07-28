@@ -1,0 +1,74 @@
+{
+  "name": "vaidya-enhanced-blog-agent-vercel",
+  "version": "2.0.0",
+  "description": "Enhanced SEO Blog Generator for Vaidya.AI optimized for Vercel serverless deployment",
+  "main": "api/index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'Vercel handles the build process'",
+    "start": "vercel dev",
+    "deploy": "vercel --prod",
+    "deploy:preview": "vercel",
+    "health-check": "curl -f https://your-domain.vercel.app/api/health || exit 1",
+    "test:local": "curl http://localhost:3000/api/health"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.5.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "axios": "^1.11.0",
+    "compression": "^1.8.1",
+    "helmet": "^7.2.0",
+    "moment": "^2.30.1",
+    "morgan": "^1.10.1",
+    "openai": "^4.24.1",
+    "slugify": "^1.6.6",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@vercel/node": "^2.15.1",
+    "vercel": "^32.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "blog",
+    "seo",
+    "medical",
+    "healthcare",
+    "vaidya",
+    "openai",
+    "ai-content",
+    "medical-blog",
+    "health-information",
+    "content-generation",
+    "vercel",
+    "serverless",
+    "api"
+  ],
+  "author": {
+    "name": "Vaidya.AI Team",
+    "email": "tech@vaidya.ai",
+    "url": "https://vaidya.ai"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vaidya-ai/blog-agent-vercel.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vaidya-ai/blog-agent-vercel/issues"
+  },
+  "homepage": "https://blog.vaidya.ai",
+  "config": {
+    "max_batch_size": 20,
+    "rate_limit_window": 900000,
+    "rate_limit_max": 10
+  },
+  "funding": {
+    "type": "company",
+    "url": "https://vaidya.ai/funding"
+  }
+}

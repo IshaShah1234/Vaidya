@@ -1,0 +1,71 @@
+const BlogAgent = require('./BlogAgent');
+
+async function runDemo() {
+  const agent = new BlogAgent();
+  
+  // High-traffic medical topics that people search for
+  const medicalTopics = [
+    {
+      title: "Diabetes symptoms and early warning signs",
+      keywords: ["diabetes symptoms", "early diabetes signs", "blood sugar symptoms", "diabetes diagnosis"]
+    },
+    {
+      title: "High blood pressure causes and natural remedies",
+      keywords: ["high blood pressure", "hypertension causes", "natural blood pressure remedies", "BP control"]
+    },
+    {
+      title: "Common cold vs flu differences and treatment",
+      keywords: ["cold vs flu", "flu symptoms", "cold treatment", "viral infection"]
+    },
+    {
+      title: "Headache types and when to see a doctor",
+      keywords: ["headache types", "migraine symptoms", "tension headache", "headache relief"]
+    },
+    {
+      title: "Chest pain causes and when to worry",
+      keywords: ["chest pain causes", "heart attack symptoms", "chest pain diagnosis", "cardiac symptoms"]
+    }
+  ];
+  
+  console.log('🚀 Starting blog generation demo...\n');
+  
+  try {
+    // Generate single blog for demo
+    console.log('Generating sample blog...');
+    const sampleBlog = await agent.generateAndSaveBlog(
+      medicalTopics[0].title, 
+      medicalTopics[0].keywords
+    );
+    
+    console.log('\n✅ Sample blog generated successfully!');
+    console.log(`📁 File: ${sampleBlog.filepath}`);
+    console.log(`📋 Title: ${sampleBlog.title}`);
+    console.log(`🔍 Keywords: ${sampleBlog.keywords.join(', ')}`);
+    
+    // Uncomment below to generate multiple blogs
+    /*
+    console.log('\nGenerating multiple blogs...');
+    const results = await agent.generateMultipleBlogs(medicalTopics);
+    
+    console.log('\n📊 Generation Summary:');
+    results.forEach((result, index) => {
+      console.log(`${index + 1}. ${result.title}`);
+      console.log(`   File: ${result.url}`);
+      console.log(`   Keywords: ${result.keywords.join(', ')}\n`);
+    });
+    */
+    
+    console.log('\n🎉 Demo completed! Check the generated-blogs folder for HTML files.');
+    console.log('\n📌 Next steps:');
+    console.log('1. Open the HTML files in your browser to see the result');
+    console.log('2. Deploy these files to blog.vaidya.ai subdomain');
+    console.log('3. Submit sitemap to Google Search Console');
+    console.log('4. Monitor traffic and rankings');
+    
+  } catch (error) {
+    console.error('❌ Demo failed:', error);
+  }
+}
+
+// Run the demo
+runDemo();
